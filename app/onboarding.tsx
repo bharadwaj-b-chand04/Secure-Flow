@@ -5,22 +5,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  ScrollView,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import {
-  Shield,
-  ArrowRight,
-  ArrowLeft,
-  Eye,
-  Brain,
-  Smartphone,
-  Lock,
-  Zap,
-  Users,
-} from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ScrollView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -28,54 +17,63 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Shield,
+  ArrowRight,
+  ArrowLeft,
+  Eye,
+  Brain,
+  Lock,
+} from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
-interface OnboardingSlide {
-  id: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  icon: React.ReactNode;
-  image?: string;
-  features?: string[];
-}
-
-const slides: OnboardingSlide[] = [
+const slides = [
   {
     id: '1',
     title: 'Welcome to SecureFlow',
     subtitle: 'The Future of Banking Security',
-    description: 'Experience next-generation protection that learns your unique patterns and keeps your money safe without compromising convenience.',
+    description:
+      'Next-gen protection that adapts to you. Convenience without compromise.',
     icon: <Shield size={64} color="#00D4FF" />,
-    image: 'https://images.pexels.com/photos/5473955/pexels-photo-5473955.jpeg?auto=compress&cs=tinysrgb&w=800',
-    features: ['Zero-friction authentication', 'Real-time fraud detection', 'Privacy-first design'],
+    image: 'https://images.pexels.com/photos/5473955/pexels-photo-5473955.jpeg',
+    features: [
+      'Zero-friction authentication',
+      'Real-time fraud detection',
+      'Privacy-first design',
+    ],
   },
   {
     id: '2',
     title: 'Behavioral Authentication',
     subtitle: 'Your Unique Digital Fingerprint',
-    description: 'SecureFlow learns how you type, swipe, and navigate. This creates an invisible shield that protects against unauthorized access.',
+    description:
+      'We learn how you type, swipe, and navigate—creating an invisible shield.',
     icon: <Brain size={64} color="#00D4FF" />,
-    image: 'https://images.pexels.com/photos/8386440/pexels-photo-8386440.jpeg?auto=compress&cs=tinysrgb&w=800',
+    image: 'https://images.pexels.com/photos/8386440/pexels-photo-8386440.jpeg',
     features: ['Keystroke dynamics', 'Gesture patterns', 'Navigation habits'],
   },
   {
     id: '3',
     title: 'AI-Powered Protection',
     subtitle: 'Machine Learning Security',
-    description: 'Our advanced AI continuously monitors for suspicious activity, adapting to new threats while maintaining seamless user experience.',
+    description:
+      'Our AI adapts to threats in real time while keeping things seamless.',
     icon: <Eye size={64} color="#00D4FF" />,
-    image: 'https://images.pexels.com/photos/8386434/pexels-photo-8386434.jpeg?auto=compress&cs=tinysrgb&w=800',
-    features: ['Real-time risk scoring', 'Adaptive challenges', 'Fraud prevention'],
+    image: 'https://images.pexels.com/photos/8386434/pexels-photo-8386434.jpeg',
+    features: ['Risk scoring', 'Adaptive challenges', 'Fraud prevention'],
   },
   {
     id: '4',
     title: 'Privacy by Design',
     subtitle: 'Your Data Stays Yours',
-    description: 'All behavioral analysis happens on your device. Your patterns never leave your phone, ensuring complete privacy and security.',
+    description:
+      'All analysis is done on-device. Your patterns never leave your phone.',
     icon: <Lock size={64} color="#00D4FF" />,
-    image: 'https://images.pexels.com/photos/5473956/pexels-photo-5473956.jpeg?auto=compress&cs=tinysrgb&w=800',
+    image: 'https://images.pexels.com/photos/5473956/pexels-photo-5473956.jpeg',
     features: ['On-device processing', 'Zero data sharing', 'Complete privacy'],
   },
 ];
@@ -83,96 +81,101 @@ const slides: OnboardingSlide[] = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const scrollX = useSharedValue(0);
 
   const handleNext = () => {
+    Haptics.selectionAsync();
     if (currentIndex < slides.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-      scrollViewRef.current?.scrollTo({
-        x: nextIndex * width,
-        animated: true,
-      });
+      scrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
     } else {
       router.replace('/login');
     }
   };
 
   const handlePrevious = () => {
+    Haptics.selectionAsync();
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1;
       setCurrentIndex(prevIndex);
-      scrollViewRef.current?.scrollTo({
-        x: prevIndex * width,
-        animated: true,
-      });
+      scrollRef.current?.scrollTo({ x: prevIndex * width, animated: true });
     }
   };
 
-  const handleScroll = (event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
     scrollX.value = offsetX;
     const index = Math.round(offsetX / width);
     setCurrentIndex(index);
   };
 
   return (
-    <LinearGradient colors={['#0A0A0A', '#1A1A2E', '#16213E']} style={styles.container}>
+    <LinearGradient colors={['#0A0A0A', '#1A1A2E']} style={styles.container}>
       <ScrollView
-        ref={scrollViewRef}
+        ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
         scrollEventThrottle={16}
+        onScroll={handleScroll}
         style={styles.scrollView}
       >
         {slides.map((slide, index) => (
-          <SlideComponent key={slide.id} slide={slide} index={index} scrollX={scrollX} />
+          <Slide key={slide.id} slide={slide} index={index} scrollX={scrollX} />
         ))}
       </ScrollView>
 
-      {/* Pagination Dots */}
       <View style={styles.pagination}>
-        {slides.map((_, index) => {
+        {slides.map((_, i) => {
           const dotStyle = useAnimatedStyle(() => {
-            const isActive = index === currentIndex;
+            const active = i === currentIndex;
             return {
-              width: withTiming(isActive ? 24 : 8, { duration: 300 }),
-              opacity: withTiming(isActive ? 1 : 0.5, { duration: 300 }),
+              width: withTiming(active ? 24 : 8),
+              opacity: withTiming(active ? 1 : 0.4),
             };
           });
-
-          return (
-            <Animated.View
-              key={index}
-              style={[styles.paginationDot, dotStyle]}
-            />
-          );
+          return <Animated.View key={i} style={[styles.dot, dotStyle]} />;
         })}
       </View>
 
-      {/* Navigation */}
       <View style={styles.navigation}>
         <TouchableOpacity
-          style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
+          style={[styles.navButton, currentIndex === 0 && styles.navDisabled]}
           onPress={handlePrevious}
           disabled={currentIndex === 0}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Previous Slide"
         >
-          <ArrowLeft size={20} color={currentIndex === 0 ? '#666' : '#FFFFFF'} />
+          <ArrowLeft size={20} color={currentIndex === 0 ? '#666' : '#FFF'} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.skipButton} onPress={() => router.replace('/login')}>
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={() => router.replace('/login')}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Skip to Login"
+        >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <LinearGradient colors={['#00D4FF', '#0099CC']} style={styles.nextButtonGradient}>
+        <TouchableOpacity
+          style={styles.nextButton}
+          onPress={handleNext}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={
+            currentIndex === slides.length - 1 ? 'Get Started' : 'Next Slide'
+          }
+        >
+          <LinearGradient colors={['#00D4FF', '#0099CC']} style={styles.nextGradient}>
             {currentIndex === slides.length - 1 ? (
-              <Text style={styles.nextButtonText}>Get Started</Text>
+              <Text style={styles.nextText}>Get Started</Text>
             ) : (
-              <ArrowRight size={20} color="#FFFFFF" />
+              <ArrowRight size={20} color="#FFF" />
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -181,68 +184,58 @@ export default function OnboardingScreen() {
   );
 }
 
-function SlideComponent({
-  slide,
-  index,
-  scrollX,
-}: {
-  slide: OnboardingSlide;
+type SlideType = {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: React.ReactNode; // ✅ FIXED TYPE
+  image: string;
+  features: string[];
+};
+
+type SlideProps = {
+  slide: SlideType;
   index: number;
   scrollX: Animated.SharedValue<number>;
-}) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
-    
-    const opacity = interpolate(
-      scrollX.value,
-      inputRange,
-      [0.5, 1, 0.5],
-      Extrapolate.CLAMP
-    );
-    
-    const scale = interpolate(
-      scrollX.value,
-      inputRange,
-      [0.8, 1, 0.8],
-      Extrapolate.CLAMP
-    );
+};
 
-    return {
-      opacity,
-      transform: [{ scale }],
-    };
+function Slide({ slide, index, scrollX }: SlideProps) {
+  const animation = useAnimatedStyle(() => {
+    const input = [(index - 1) * width, index * width, (index + 1) * width];
+    const opacity = interpolate(scrollX.value, input, [0.4, 1, 0.4], Extrapolate.CLAMP);
+    const scale = interpolate(scrollX.value, input, [0.9, 1, 0.9], Extrapolate.CLAMP);
+    return { opacity, transform: [{ scale }] };
   });
 
   return (
-    <Animated.View style={[styles.slide, animatedStyle]}>
+    <Animated.View style={[styles.slide, animation]}>
       <View style={styles.slideContent}>
-        {/* Hero Image */}
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: slide.image }} style={styles.slideImage} />
+        <View style={styles.imageBox}>
+          <Image
+            source={{ uri: slide.image }}
+            style={styles.image}
+            accessible
+            accessibilityLabel={`Visual theme for ${slide.title}`}
+          />
           <View style={styles.imageOverlay}>
-            <View style={styles.iconContainer}>
-              {slide.icon}
-            </View>
+            <View style={styles.iconWrap}>{slide.icon}</View>
           </View>
         </View>
 
-        {/* Content */}
-        <View style={styles.textContent}>
-          <Text style={styles.slideTitle}>{slide.title}</Text>
-          <Text style={styles.slideSubtitle}>{slide.subtitle}</Text>
-          <Text style={styles.slideDescription}>{slide.description}</Text>
+        <View style={styles.textWrap}>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.subtitle}>{slide.subtitle}</Text>
+          <Text style={styles.desc}>{slide.description}</Text>
 
-          {/* Features */}
-          {slide.features && (
-            <View style={styles.featuresContainer}>
-              {slide.features.map((feature, idx) => (
-                <View key={idx} style={styles.featureItem}>
-                  <View style={styles.featureDot} />
-                  <Text style={styles.featureText}>{feature}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+          <View style={styles.featureList}>
+            {slide.features.map((f: string, idx: number) => (
+              <View key={idx} style={styles.feature}>
+                <View style={styles.featureDot} />
+                <Text style={styles.featureText}>{f}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
     </Animated.View>
@@ -250,23 +243,11 @@ function SlideComponent({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  slide: {
-    width,
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
-  },
-  slideContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  imageContainer: {
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  slide: { width, paddingTop: 60, paddingHorizontal: 24 },
+  slideContent: { flex: 1, alignItems: 'center' },
+  imageBox: {
     position: 'relative',
     width: width - 48,
     height: 280,
@@ -274,37 +255,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 40,
   },
-  slideImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
+  image: { width: '100%', height: '100%', resizeMode: 'cover' },
   imageOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconContainer: {
+  iconWrap: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(0, 212, 255, 0.2)',
+    backgroundColor: 'rgba(0,212,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(0, 212, 255, 0.5)',
+    borderColor: 'rgba(0,212,255,0.5)',
   },
-  textContent: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  slideTitle: {
+  textWrap: { paddingHorizontal: 16, alignItems: 'center' },
+  title: {
     color: '#FFFFFF',
     fontSize: 28,
     fontFamily: 'Inter-Bold',
@@ -312,14 +281,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 34,
   },
-  slideSubtitle: {
+  subtitle: {
     color: '#00D4FF',
     fontSize: 18,
     fontFamily: 'Inter-SemiBold',
     textAlign: 'center',
     marginBottom: 16,
   },
-  slideDescription: {
+  desc: {
     color: '#B0B0B0',
     fontSize: 16,
     fontFamily: 'Inter-Regular',
@@ -327,20 +296,18 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 32,
   },
-  featuresContainer: {
-    alignSelf: 'stretch',
-    gap: 12,
-  },
-  featureItem: {
+  featureList: { width: '100%' },
+  feature: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginBottom: 12,
   },
   featureDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#00D4FF',
+    marginRight: 10,
   },
   featureText: {
     color: '#FFFFFF',
@@ -352,12 +319,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 20,
-    gap: 8,
   },
-  paginationDot: {
+  dot: {
     height: 8,
     borderRadius: 4,
     backgroundColor: '#00D4FF',
+    marginHorizontal: 4,
   },
   navigation: {
     flexDirection: 'row',
@@ -370,12 +337,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  navButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  navDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   skipButton: {
     paddingHorizontal: 16,
@@ -390,13 +357,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
   },
-  nextButtonGradient: {
+  nextGradient: {
     width: 48,
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  nextButtonText: {
+  nextText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',

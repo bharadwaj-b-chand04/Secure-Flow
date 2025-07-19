@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Vibration } from 'react-native';
 import { BehaviorTracker } from '@/services/BehaviorTracker';
 
@@ -19,21 +19,35 @@ export function PinInput({
 }: PinInputProps) {
   const [pin, setPin] = useState('');
   const [pressedKey, setPressedKey] = useState<string | null>(null);
-  const behaviorTracker = BehaviorTracker.getInstance();
+  const behaviorTracker = useMemo(() => BehaviorTracker.getInstance(), []);
 
   useEffect(() => {
     if (pin.length === length) {
+      console.log('Pin complete:', pin);
       onComplete(pin);
     }
   }, [pin, length, onComplete]);
 
+  useEffect(() => {
+    if (pressedKey === null) return;
+
+    const timeoutId = setTimeout(() => {
+      setPressedKey(null);
+    }, FEEDBACK_DELAY);
+
+    return () => clearTimeout(timeoutId);
+  }, [pressedKey]);
+
   const handleKeyPress = (key: string) => {
     const timestamp = Date.now();
     setPressedKey(key);
-    setTimeout(() => setPressedKey(null), FEEDBACK_DELAY);
     Vibration.vibrate(50);
 
+    console.log(`Key pressed: ${key} at ${timestamp}`);
+
+    // Comment this line out to test if BehaviorTracker causes any blocking
     behaviorTracker.recordKeystroke(key, timestamp);
+
     onKeystroke?.(key, timestamp);
 
     switch (key) {
@@ -41,11 +55,11 @@ export function PinInput({
         setPin('');
         break;
       case 'delete':
-        setPin(prev => prev.slice(0, -1));
+        setPin((prev) => prev.slice(0, -1));
         break;
       default:
         if (pin.length < length) {
-          setPin(prev => prev + key);
+          setPin((prev) => prev + key);
         }
     }
   };

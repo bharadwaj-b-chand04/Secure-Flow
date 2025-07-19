@@ -12,6 +12,8 @@ import {
   Inter_900Black,
 } from '@expo-google-fonts/inter';
 import { SplashScreen } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -35,13 +37,13 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  // Return null to keep splash screen visible while fonts load
+  // Keep splash screen visible until fonts are loaded
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={styles.container}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
@@ -50,6 +52,12 @@ export default function RootLayout() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="light" backgroundColor="#0A0A0A" />
-    </>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
