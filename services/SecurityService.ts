@@ -1,12 +1,16 @@
 import { BehaviorTracker } from './BehaviorTracker';
 import { SecurityEvent } from '@/types';
+import { MLService } from './MLService';
+import { categorizeRisk } from '@/utils/riskUtils';
+import { DatabaseService } from './DatabaseService';
 
 export class SecurityService {
   private static instance: SecurityService;
   private behaviorTracker: BehaviorTracker;
   private securityEvents: SecurityEvent[] = [];
   private panicGestureCount = 0;
-  private panicGestureTimeout: number | null = null; // ✅ Changed from NodeJS.Timeout to number
+  private panicGestureTimeout: number | null = null;
+  private databaseService: DatabaseService;
 
   static getInstance(): SecurityService {
     if (!SecurityService.instance) {
@@ -17,6 +21,7 @@ export class SecurityService {
 
   constructor() {
     this.behaviorTracker = BehaviorTracker.getInstance();
+    this.databaseService = DatabaseService.getInstance();
   }
 
   async authenticateAction(action: string, context: any): Promise<{
@@ -25,8 +30,15 @@ export class SecurityService {
     riskScore: number;
     response: 'allow' | 'challenge' | 'block';
   }> {
-    const riskScore = this.behaviorTracker.calculateRiskScore();
-    const riskLevel = this.behaviorTracker.getRiskLevel();
+    const mlService = MLService.getInstance();
+    await mlService.initialize();
+
+    const behaviorProfile = this.behaviorTracker.getBehaviorProfile();
+    const sensorData = this.behaviorTracker['sensorData'] || [];
+
+    const mlPrediction = await mlService.predictRisk(behaviorProfile!, sensorData);
+    const riskScore = mlPrediction.riskScore;
+    const riskLevel = categorizeRisk(riskScore);
 
     let response: 'allow' | 'challenge' | 'block' = 'allow';
     let challengeRequired = false;
@@ -38,15 +50,12 @@ export class SecurityService {
         response = 'challenge';
         challengeRequired = true;
       }
-    } else if (action === 'transfer' && riskLevel === 'high') {
-      response = 'challenge';
-      challengeRequired = true;
-    } else if (riskLevel === 'high' && (action === 'login' || action === 'settings')) {
+    } else if (riskLevel === 'high') {
       response = 'challenge';
       challengeRequired = true;
     }
 
-    this.logSecurityEvent({
+    await this.logSecurityEvent({
       id: Date.now().toString(),
       userId: context.userId || 'unknown',
       type: action as any,
@@ -62,6 +71,23 @@ export class SecurityService {
       riskScore,
       response,
     };
+  }
+
+  async verifyPin(pin: string): Promise<boolean> {
+    const correctPin = '123456'; // Replace this with secure retrieval logic later
+    const isValid = pin === correctPin;
+
+    await this.logSecurityEvent({
+      id: Date.now().toString(),
+      userId: 'current-user',
+      type: 'login',
+      riskScore: isValid ? 0.1 : 0.9,
+      action: isValid ? 'allow' : 'block',
+      timestamp: new Date(),
+      details: { pinEntered: pin }
+    });
+
+    return isValid;
   }
 
   handlePanicGesture(): void {
@@ -80,11 +106,11 @@ export class SecurityService {
     }
   }
 
-  private triggerPanicMode(): void {
-    console.log('PANIC MODE TRIGGERED - Security alert sent');
+  private async triggerPanicMode(): Promise<void> {
+    console.log('🚨 PANIC MODE TRIGGERED');
     this.panicGestureCount = 0;
 
-    this.logSecurityEvent({
+    await this.logSecurityEvent({
       id: Date.now().toString(),
       userId: 'current-user',
       type: 'gesture',
@@ -93,8 +119,6 @@ export class SecurityService {
       timestamp: new Date(),
       details: { event: 'panic_gesture_triggered' },
     });
-
-    // Add any extra cleanup or silent alert behavior here
   }
 
   generateDecoyChallenge(): {
@@ -129,12 +153,19 @@ export class SecurityService {
     return Math.random() < 0.9;
   }
 
-  private logSecurityEvent(event: SecurityEvent): void {
+  private async logSecurityEvent(event: SecurityEvent): Promise<void> {
     this.securityEvents.push(event);
-
     if (this.securityEvents.length > 100) {
       this.securityEvents.shift();
     }
+
+    await this.databaseService.logSecurityEvent(
+      event.userId,
+      event.type,
+      event.riskScore,
+      event.action,
+      event.details
+    );
   }
 
   getSecurityEvents(): SecurityEvent[] {
@@ -148,24 +179,24 @@ export class SecurityService {
     recommendations: string[];
   } {
     const riskScore = this.behaviorTracker.calculateRiskScore();
-    const riskLevel = this.behaviorTracker.getRiskLevel();
+    const riskLevel = categorizeRisk(riskScore);
 
     const factors: string[] = [];
     const recommendations: string[] = [];
 
     if (riskScore > 0.3) {
-      factors.push('Unusual typing pattern detected');
-      recommendations.push('Monitor keystroke dynamics');
+      factors.push('Unusual typing pattern');
+      recommendations.push('Monitor keystrokes');
     }
 
     if (riskScore > 0.5) {
-      factors.push('Abnormal navigation behavior');
-      recommendations.push('Verify user identity');
+      factors.push('Abnormal navigation');
+      recommendations.push('Verify identity');
     }
 
     if (riskScore > 0.7) {
-      factors.push('High-risk session detected');
-      recommendations.push('Require additional authentication');
+      factors.push('High-risk session');
+      recommendations.push('Trigger challenge');
     }
 
     return {

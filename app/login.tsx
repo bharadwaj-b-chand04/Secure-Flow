@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Shield, Eye, EyeOff } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +17,9 @@ import { SecurityIndicator } from '@/components/SecurityIndicator';
 import { BehaviorTracker } from '@/services/BehaviorTracker';
 import { SecurityService } from '@/services/SecurityService';
 import { SensorService } from '@/services/SensorService';
+import * as Haptics from 'expo-haptics';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -17,25 +28,21 @@ export default function LoginScreen() {
   const [riskLevel, setRiskLevel] = useState<'low' | 'medium' | 'high'>('low');
   const [riskScore, setRiskScore] = useState(0);
   const [isDecoyMode, setIsDecoyMode] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(false);
+
   const behaviorTracker = BehaviorTracker.getInstance();
   const securityService = SecurityService.getInstance();
   const sensorService = SensorService.getInstance();
 
   useEffect(() => {
-    // Initialize behavior tracking
     behaviorTracker.initializeProfile('demo-user');
-    
-    // Start sensor monitoring
     sensorService.startMonitoring();
-    
-    // Subscribe to sensor data
+
     const unsubscribe = sensorService.subscribe((data) => {
       behaviorTracker.recordSensorData(data);
       updateRiskScore();
     });
 
-    // Record navigation
     behaviorTracker.recordNavigation('login');
 
     return () => {
@@ -52,41 +59,46 @@ export default function LoginScreen() {
   };
 
   const handlePinComplete = async (pin: string) => {
-    // Simulate PIN validation
+    setIsLoading(true);
     const isValidPin = pin === '123456';
-    
+
     if (!isValidPin) {
+      setIsLoading(false);
       Alert.alert('Invalid PIN', 'Please try again.');
       return;
     }
 
-    // Check if authentication is required
     const authResult = await securityService.authenticateAction('login', {
       userId: 'demo-user',
       pin,
       timestamp: Date.now(),
     });
 
+    setIsLoading(false);
+
     if (authResult.challengeRequired) {
-      // Check if this should be a decoy challenge
       const decoyChallenge = securityService.generateDecoyChallenge();
       setIsDecoyMode(decoyChallenge.isDecoy);
       setShowBiometric(true);
     } else if (authResult.allowed) {
-      // Direct login
       router.replace('/(tabs)');
     } else {
-      Alert.alert('Access Denied', 'Your session has been flagged for security review.');
+      Alert.alert(
+        'Access Denied',
+        'Your session has been flagged for security review.'
+      );
     }
   };
 
   const handleBiometricSuccess = () => {
     setShowBiometric(false);
-    
+
     if (isDecoyMode) {
-      // In decoy mode, show fake success then redirect to security
       setTimeout(() => {
-        Alert.alert('Security Alert', 'Unusual activity detected. Please contact support.');
+        Alert.alert(
+          'Security Alert',
+          'Unusual activity detected. Please contact support.'
+        );
       }, 1000);
     } else {
       router.replace('/(tabs)');
@@ -103,36 +115,53 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={['#000000', '#1A1A1A']}
-      style={styles.container}
-    >
+    <LinearGradient colors={['#000000', '#1A1A1A']} style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Shield size={48} color="#007AFF" />
+          <Shield size={48} color="#00D4FF" />
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Enter your PIN to continue</Text>
         </View>
 
         <SecurityIndicator riskLevel={riskLevel} riskScore={riskScore} />
 
-        <PinInput
-          onComplete={handlePinComplete}
-          onKeystroke={handleKeystroke}
-          isDecoy={isDecoyMode}
-        />
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#00D4FF" style={{ marginTop: 32 }} />
+        ) : (
+          <PinInput
+            onComplete={handlePinComplete}
+            onKeystroke={handleKeystroke}
+            isDecoy={isDecoyMode}
+          />
+        )}
 
         <View style={styles.footer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.panicButton}
-            onPress={() => securityService.handlePanicGesture()}
+            activeOpacity={0.7}
+            onPress={() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              securityService.handlePanicGesture();
+            }}
+            accessible
+            accessibilityLabel="Emergency Action"
+            accessibilityRole="button"
           >
             <Text style={styles.panicButtonText}>Emergency</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.helpButton}
-            onPress={() => Alert.alert('Help', 'SecureFlow monitors your behavior patterns to ensure account security.')}
+            activeOpacity={0.6}
+            onPress={() =>
+              Alert.alert(
+                'Help',
+                'SecureFlow monitors your behavior patterns to ensure account security.'
+              )
+            }
+            accessible
+            accessibilityLabel="Help and Information"
+            accessibilityRole="button"
           >
             <Text style={styles.helpButtonText}>How it works</Text>
           </TouchableOpacity>
@@ -158,7 +187,8 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
@@ -166,40 +196,41 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: 16,
+    fontSize: 28,
     fontFamily: 'Inter-Bold',
+    marginTop: 12,
   },
   subtitle: {
-    color: '#CCCCCC',
+    color: '#AAAAAA',
     fontSize: 16,
-    marginTop: 8,
     fontFamily: 'Inter-Medium',
+    marginTop: 4,
+    textAlign: 'center',
   },
   footer: {
     marginTop: 32,
     alignItems: 'center',
-    gap: 12,
   },
   panicButton: {
     backgroundColor: '#FF4444',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
+    marginBottom: 12,
+    width: '100%',
   },
   panicButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
+    textAlign: 'center',
   },
   helpButton: {
+    paddingVertical: 10,
     paddingHorizontal: 24,
-    paddingVertical: 12,
   },
   helpButtonText: {
-    color: '#007AFF',
+    color: '#00D4FF',
     fontSize: 14,
     fontFamily: 'Inter-Medium',
   },
