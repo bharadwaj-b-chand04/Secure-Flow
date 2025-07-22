@@ -15,6 +15,9 @@ import { SplashScreen } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
 
+// Import your AuthProvider (adjust path if needed)
+import { AuthProvider } from '@/hooks/AuthContext';
+
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
@@ -30,28 +33,28 @@ export default function RootLayout() {
     'Inter-Black': Inter_900Black,
   });
 
-  // Hide splash screen once fonts are loaded
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
 
-  // Keep splash screen visible until fonts are loaded
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="light" backgroundColor="#0A0A0A" />
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="light" backgroundColor="#0A0A0A" />
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }

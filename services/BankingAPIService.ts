@@ -327,8 +327,8 @@ export class BankingAPIService {
         refreshToken: `refresh_${Date.now()}`,
         user: {
           id: 'user_123',
-          name: 'Alex Morgan',
-          email: 'alex.morgan@example.com',
+          name: 'Suresh',
+          email: 'Sureshgopi@example.com',
           accountNumber: '****1234',
           balance: 24567.89,
           createdAt: new Date()

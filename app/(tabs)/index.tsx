@@ -32,8 +32,8 @@ export default function DashboardScreen() {
   // Mock user data
   const user: UserProfile = {
     id: 'demo-user',
-    name: 'Alex Morgan',
-    email: 'alex.morgan@example.com',
+    name: 'Suresh Gopi',
+    email: 'suresh.gopi@example.com',
     accountNumber: '****1234',
     balance: 24567.89,
     createdAt: new Date(),
